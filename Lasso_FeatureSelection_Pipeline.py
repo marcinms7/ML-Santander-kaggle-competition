@@ -17,28 +17,74 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class LassoPipelineProcessor(BaseEstimator, TransformerMixin):
-    
     def __init__(self, savedfeatures_names = [], current_features = []):
+        '''
+        Constructor for Lasso pipeline class. 
+        It has to inherit from BaseEstimator and TransformerMixin to 
+        create bespoke estimator, for sklearn's pipeline.
+        All estimators in sklearn have to be derived from BaseEstimator
+
+        Parameters
+        ----------
+        savedfeatures_names : list, string.
+            This list can be established by the LassoFeatureSelectionPipeline
+            class, after chosing appropariate penalty value.
+            Just save the list you get from LassoFeatureSelectionPipeline.model(penalty)
+            and pass it as the argument here.
+            
+        current_features : list, string
+            Name of all columns in the dataset.
+
+        Returns
+        -------
+        Used to be fitted into the sklearn pipeline.
+
+        '''
         self.savedfeatures_names = savedfeatures_names
         self.current_features = current_features
         
     def fit (self, X, y=None):
+        # Fits the model with all saved names
         self.all_savedfeatures_names = self.savedfeatures_names
         return self
     
     def transform (self, X):
+        # copying only names that for given penalty were not shrinked by lasso 
         X = pd.DataFrame(data=X, columns = self.current_features)
         output = X.copy()
         output = output[self.savedfeatures_names]
         return output
     
     def get_support(self):
+        # chosen features getter
         return self.savedfeatures_names
         
         
 
 class LassoFeatureSelectionPipeline:
     def __init__(self, data, test,currentpredyear, *categorical):
+        '''
+        Constructor for lasso feature selection. 
+        When calling object.model() it calls combination of penalties
+        and displays accuracy metrics and number of features.
+        When topvalues greater than 0, it returns chosen features. 
+
+        Parameters
+        ----------
+        data : DataFrame.
+            Training data.
+        test : DataFrame
+            Test data.
+        currentpredyear : Int
+            Currently depreciated, to be removed in v0.2
+        *categorical : list,str
+            Exclude passed categorical columns.
+
+        Returns
+        -------
+        None.
+
+        '''
         self.data = data
         self.test = test
         self.categorical = categorical
@@ -46,6 +92,26 @@ class LassoFeatureSelectionPipeline:
         print(categorical)
         
     def model(self, c_runs = 0):
+        '''
+        This function runs lasso model utilising it's sparsity. Lasso would shrink 
+        and remove the coefficients and push weights to 0, therefore eliminating
+        some variables.
+        
+        In default setting (model()), the function will print a table with
+        penalty, number of features and accuracy (AUC) metric. 
+
+        ----------
+        c_runs : Int
+            The default is 0. That will make many combinations of penalties 
+            being applied in the lasso model.
+            If this is set to a value greater than 0, model will only run once,
+            with stated penalty. 
+
+        Returns
+        -------
+        If c_runs == 0: returned is a table with C, AUC and no of features.
+        If c_runs > 0: returned is a list of names of chosen variables (str)
+        '''
         data = self.data.loc[:, ~self.data.columns.isin(self.categorical)]
         test = self.test.loc[:, ~self.test.columns.isin(self.categorical)]
         
@@ -61,7 +127,7 @@ class LassoFeatureSelectionPipeline:
                 # think about transforming data 
             ])
         X_train = transform.fit_transform(new_data)
-        # if c_runs is chose,n lasso does not test and only runs picked c value
+        # if c_runs is chosen lasso does not test and only runs picked c value
         # and returns the feature names
         if c_runs == 0:
             cs = [0.001, 0.005, 0.008, 0.01,0.02,0.05,0.07,0.08,0.1,0.15,0.20,0.30,0.50]
